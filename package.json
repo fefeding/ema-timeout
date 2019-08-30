@@ -1,0 +1,23 @@
+{
+  "name": "ema_time",
+  "version": "1.0.0",
+  "description": "通过ema算法动态计算延时时间",
+  "main": "index.js",
+  "scripts": {
+    "test": "node ./test/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jiamao/ema_time.git"
+  },
+  "keywords": [
+    "ema",
+    "动态超时"
+  ],
+  "author": "jiamao",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jiamao/ema_time/issues"
+  },
+  "homepage": "https://github.com/jiamao/ema_time#readme"
+}
