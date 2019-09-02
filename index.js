@@ -39,8 +39,8 @@ exports.create = function(options) {
             //  EMA <= Tavg， 这种情况EMA评估值比Tavg还要少，按耗时越少，给的延时越多的原则来计算，当前给的延时时间为Tmax。
             if(this.ema <= this.options.Tavg) tdto = this.options.Tmax;    
             // EMA >= Thwm, 这种情况下，网络抖动比较严重，直接把延时限制在Thwm上，加快失败，方便进行柔性处理。
-            else if(this.ema >= this.options.thwm) {
-                tdto = this.options.thwm;
+            else if(this.ema >= this.options.Thwm) {
+                tdto = this.options.Thwm;
             }
             // EMA > Tavg, 这种情况EMA估值已经大于平均延时，此时启用动态延时计算
             else {

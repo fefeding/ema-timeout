@@ -1,0 +1,214 @@
+<!doctype html>
+<html style="height:100%;margin:0;">
+<head>
+<meta charset="utf-8">
+<title>ema数据</title>
+<meta name="description" content=""/>
+<meta name="keywords" content=""/>
+<meta name="format-detection" content="telephone=no" />
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="viewport" content="width=device-width,initial-scale=1, minimum-scale=1.0, maximum-scale=1, user-scalable=no"/>
+<script src="https://jiamao.github.io/jmgraph/dist/jmgraph.min.js"></script>
+<script>
+//生成ajax请求
+    //time 延时多少毫秒
+    window.httpRequest = function(url, callback, time) {
+        var xmlHttp;
+        if (window.ActiveXObject) {
+            xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
+        }
+        else if (window.XMLHttpRequest) {
+            xmlHttp = new XMLHttpRequest();
+        }
+        if(!xmlHttp) {
+            callback(null);
+            return;
+        }
+        xmlHttp.onreadystatechange=function(e){
+            if(this.readyState == 4) {
+                if(this.status == 200) {
+                    callback&&callback(this.responseText||this.response);
+                }
+                else {
+                    callback&&callback();
+                }
+            }
+        };
+        xmlHttp.open("GET",url,true);
+        //缓存中没有,指定了需要TAG处理，则优先返回，并延时处理资源
+        if(time) {
+            //css延时请求，因为如果缓存中没有的话，会直接生成link标签保证加载顺序
+            setTimeout(function(){
+                xmlHttp.send(null);
+            }, time);
+        }
+        else {
+            xmlHttp.send(null);
+        }
+        return xmlHttp;
+    }
+    // 加载模块
+    function require(url, callback) {
+        window.httpRequest(url, function(js) {
+            if(!js) {
+                callback && callback(null);
+                return;
+            }
+            var module = {};
+            var exports = {};
+            module.exports = exports;
+            var f = new Function('module', 'exports', js);
+            f(module, exports);
+            callback(module.exports);
+        });
+    }
+</script>
+</head>
+<body>
+<div id="mycanvas" style="margin:10px;margin-top: 50px;width:100%;height:400px;"></div>
+<div style="display:inline;">
+<div style="background:#FF00FF; width:20px; height:2px;display: inline-block;"></div> Tavg: 最低响应时间 <br />
+<div style="background:#FF9900; width:20px; height:2px;display: inline-block;"></div> Thwm: 超时时间限制 <br />
+<div style="background:#000; width:20px; height:2px;display: inline-block;color:#fff;"></div> Tmax: 最大弹性时间 <br />
+<div style="background:#00FFFF; width:20px; height:2px;display: inline-block;"></div> EMA: 平均响应时间 <br />
+<div style="background:#FF0000; width:20px; height:2px;display: inline-block;"></div> Tdto: 动态超时时长 <br />
+<div style="background:#0DAF43; width:20px; height:2px;display: inline-block;"></div> 当前延时
+</div>
+</body>
+<script>
+
+var graph = jmGraph.create('mycanvas', {
+        width: 600,
+        height: 400
+    });
+var margin = {
+        left: 40,
+        top: 100,
+        bottom: 20,
+        right: 20
+    };
+
+var options = {
+        Tavg: 55,
+        Thwm: 300,
+        Tmax: 500,
+        N: 90
+    };
+require('../index.js', function(ema) {
+    /*          Tavg: 最低响应时间， 一般用平均响应时间替代 (ms)
+        *      Thwm：超时时间限制， 确保最坏的时候，所有请求能处理。正常时正确处理的成功率满足需求。 (ms)
+        *      Tmax: 最大弹性时间 (ms)
+        *      N: 平滑指数，越小表示平无值越受最近值的影响，太大则对异常响应较慢
+        */
+    
+    var instance = ema.create(options);
+
+    var srcData = [];
+    var emaData = [];
+    var tdtoData = [];
+
+    //var bezier = graph.createShape('bezier');
+    for(var i=0;i<1000;i++) {
+        var t = Math.random() * 50 + 30;
+        if(i == 40 || i == 80) t += 600;
+        if(i > 100) {
+            if(i < 300) {
+                t += i * 1.5;
+                if(i == 200) t = 100;
+            }
+            else if(i < 500){
+                t += (500-i) * 1.5;
+            }
+        }
+       
+
+        srcData.push(t); // 时时间
+    }
+
+    for(var i=0;i<srcData.length;i++) {
+        var tdto = instance.get();
+        
+        emaData.push(instance.ema);
+        tdtoData.push(tdto);
+
+        instance.update(srcData[i]);
+    }
+
+    draw(srcData, emaData, tdtoData);
+});
+
+function draw(srcData, emaData, tdtoData) {
+    var style = {
+        stroke:'#000',
+        lineWidth: 2
+    };
+    //style.shadow = '0,0,5,#ccc';
+    //style.opacity = 0.8;
+    //graph.createShadow('shadow(0,0,10,#000)');//new jmShadow('shadow(10,10,20,#000)');
+    //style.shadow = graph.createShadow(4,4,6,'#000000');
+    //style.lineCap = 'round';
+
+    var rect = graph.createShape('rect', {
+        position: {
+            x: margin.left,
+            y: 0
+        },
+        width: graph.width - margin.left - margin.right,
+        height: graph.height - margin.bottom
+    });
+    graph.children.add(rect);
+
+    var tmaxy = convertPosY(options.Tmax);
+    var tmaxline = graph.createLine({x:margin.left,y: tmaxy},{x: graph.width - margin.right,y:tmaxy},style);
+    graph.children.add(tmaxline);
+
+    var tavgy = convertPosY(options.Tavg);
+    style = graph.util.clone(style);
+    style.stroke = '#FF00FF';
+    var tavgline = graph.createLine({x:margin.left,y: tavgy},{x: graph.width - margin.right,y:tavgy},style);
+    graph.children.add(tavgline);
+
+    var thwmy = convertPosY(options.Thwm);
+    style = graph.util.clone(style);
+    style.stroke = '#FF9900';
+    var thwmline = graph.createLine({x:margin.left,y: thwmy},{x: graph.width - margin.right,y:thwmy},style);
+    graph.children.add(thwmline);
+
+    style = graph.util.clone(style);
+    style.stroke = '#0DAF43';
+    var p = createLine(srcData, style);
+    graph.children.add(p);
+
+    style = graph.util.clone(style);
+    style.stroke = '#00FFFF';
+    var p = createLine(emaData, style);
+    graph.children.add(p);
+
+    style = graph.util.clone(style);
+    style.stroke = '#FF0000';
+    var p = createLine(tdtoData, style);
+    graph.children.add(p);
+
+    graph.redraw();
+}
+
+function createLine(data, style) {
+    var points = [];
+    var step = (graph.width - margin.left - margin.right) / (data.length - 1);
+    for(var i=0;i<data.length;i++) {
+        points.push({
+            x: step * i + margin.left,
+            y: convertPosY(data[i])
+        });
+    }
+    var p = graph.createPath(points, style);
+    return p;
+}
+
+function convertPosY(value) {
+    var h = graph.height - margin.top - margin.bottom;
+    return h - value / options.Tmax * h + margin.top;
+}
+</script>
+</html>

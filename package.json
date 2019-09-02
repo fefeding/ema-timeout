@@ -1,6 +1,6 @@
 {
   "name": "ema_time",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "通过ema算法动态计算延时时间",
   "main": "index.js",
   "scripts": {
