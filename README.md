@@ -12,6 +12,7 @@
 EMA算法本身是多用于金融行业的，是一种基于增加期望的模型。算法的主要思想是综合利用历史上积累到的数据，预测下一个周期内的期望。我们参考了标准的EMA算法，得到了符合互联网业务特点的用于超时控制的EMA算法。具体的思想主要是引入“平均效应”的概念，用平均响应时间代替固定超时时间，只要平均响应时间没有超时即可，而不是要求每次都不能超时。主要几点：总体情况不能超标；平均情况表现越好，弹性越大；平均情况表现越差，弹性越小。这里的弹性指的是允许毛刺情况的最大响应时间。
 
 - 数据效果展示：[https://jiamao.github.io/ema_time/test/index.html](https://jiamao.github.io/ema_time/test/index.html)
+![效果图]](https://raw.githubusercontent.com/jiamao/ema_time/master/test/line.png)
 
 ## Install
 

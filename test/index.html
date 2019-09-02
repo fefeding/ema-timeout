@@ -108,8 +108,34 @@ require('../index.js', function(ema) {
     var emaData = [];
     var tdtoData = [];
 
-    //var bezier = graph.createShape('bezier');
-    for(var i=0;i<1000;i++) {
+    var bezier = graph.createShape('bezier');
+    for(var i=0;i<800;i++) {
+        var t = Math.random() * 50 + 30;
+        
+
+        // 人为制造一个异常波
+        if(i == 100) {
+            bezier.cpoints = [
+                {x: 20, y: t},
+                {x: 22, y: 550},
+                {x: 40, y: 800},
+                {x: 60, y: 580},
+                {x: 80, y: t}
+            ];
+            var cps = bezier.initPoints();
+            srcData = srcData.concat(cps.map(function(p){return p.y + Math.random() * 80;}));
+        } 
+        else if(i < srcData.length - 1) {
+            //t += 200 * Math.random();
+
+            if(i > 200 && i < 220) t += 400;
+
+            if(i > 400 && i < 405) t += 400;
+        } 
+        srcData.push(t); // 时时间
+    }
+
+    /*for(var i=0;i<1000;i++) {
         var t = Math.random() * 50 + 30;
         if(i == 40 || i == 80) t += 600;
         if(i > 100) {
@@ -124,7 +150,7 @@ require('../index.js', function(ema) {
        
 
         srcData.push(t); // 时时间
-    }
+    }*/
 
     for(var i=0;i<srcData.length;i++) {
         var tdto = instance.get();
