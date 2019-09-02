@@ -39,12 +39,20 @@ const emaObj = ema.create(options);
 const start = Date.now();
 let tdto = emaObj.get(); // 获取当前超时设置时间
 
-// 请求接口指向超时时间
-const result = await request({
-    timeout: tdto
-});// 请求接口 
-    
-emaObj.update(Date.now() - start); // 这里是更新当前接口延时时间，以备计算后续超时
+// 请求接口指定超时时间
+// 这里是你业务请求逻辑
+try {
+    const result = await request({
+        timeout: tdto
+    });// 请求接口 
+
+    emaObj.update(Date.now() - start); // 这里是更新当前接口延时时间，以备计算后续超时
+}
+catch(e) {
+    // 把异常指定为最大超时，这样更好的反应接口健康情况
+    emaObj.update(Math.max(Date.now() - start, options.Tmax)); 
+}    
+
 ```
 
 ## 适用条件
