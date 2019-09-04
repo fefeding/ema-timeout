@@ -23,7 +23,7 @@ $ npm i ema_time --save
 ## Usage
 
 ```js
-const ema = require('ema_time');
+const ema = require('ema-time');
 
 // 因为每个cgi有可能不一样，根据自身业务需求考虑是否要为每个接口create不同的ema计算
 const options = {
