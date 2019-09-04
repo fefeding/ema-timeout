@@ -1,5 +1,5 @@
 {
-  "name": "ema-time",
+  "name": "ema-timeout",
   "version": "1.0.3",
   "description": "通过ema算法动态计算延时时间",
   "main": "index.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jiamao/ema_time.git"
+    "url": "git+https://github.com/jiamao/ema-timeout.git"
   },
   "keywords": [
     "ema",
@@ -17,7 +17,7 @@
   "author": "jiamao",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jiamao/ema_time/issues"
+    "url": "https://github.com/jiamao/ema-timeout/issues"
   },
-  "homepage": "https://github.com/jiamao/ema_time#readme"
+  "homepage": "https://github.com/jiamao/ema-timeout#readme"
 }
