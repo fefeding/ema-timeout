@@ -20,9 +20,9 @@ EMA is usually used in finance to predict the next period from historical data. 
 
 Here *elasticity* means the maximum response time a spike is allowed to consume.
 
-[Interactive chart](https://jiamao.github.io/ema-timeout/test/index.html)
+[Interactive chart](https://fefeding.github.io/ema-timeout/test/index.html)
 
-![EMA timeout curve](https://raw.githubusercontent.com/jiamao/ema-timeout/master/test/line.png)
+![EMA timeout curve](https://raw.githubusercontent.com/fefeding/ema-timeout/master/test/line.png)
 
 ## Features
 

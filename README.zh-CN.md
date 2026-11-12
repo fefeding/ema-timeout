@@ -20,9 +20,9 @@ EMA 多用于金融领域，是一种用历史数据预测下一周期期望的�
 
 这里的「弹性」指允许毛刺请求消耗的最大响应时间。
 
-[数据效果展示](https://jiamao.github.io/ema-timeout/test/index.html)
+[数据效果展示](https://fefeding.github.io/ema-timeout/test/index.html)
 
-![EMA 超时曲线](https://raw.githubusercontent.com/jiamao/ema-timeout/master/test/line.png)
+![EMA 超时曲线](https://raw.githubusercontent.com/fefeding/ema-timeout/master/test/line.png)
 
 ## 特性
 
