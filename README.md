@@ -1,5 +1,6 @@
+# ema-timeout
 
-# ema超时算法
+[简体中文](./README.zh-CN.md) | English
 
 [![NPM version][npm-image]][npm-url]
 [![npm download][download-image]][download-url]
@@ -9,64 +10,199 @@
 [download-image]: https://img.shields.io/npm/dm/ema-timeout.svg?style=flat-square
 [download-url]: https://npmjs.org/package/ema-timeout
 
-EMA算法本身是多用于金融行业的，是一种基于增加期望的模型。算法的主要思想是综合利用历史上积累到的数据，预测下一个周期内的期望。我们参考了标准的EMA算法，得到了符合互联网业务特点的用于超时控制的EMA算法。具体的思想主要是引入“平均效应”的概念，用平均响应时间代替固定超时时间，只要平均响应时间没有超时即可，而不是要求每次都不能超时。主要几点：总体情况不能超标；平均情况表现越好，弹性越大；平均情况表现越差，弹性越小。这里的弹性指的是允许毛刺情况的最大响应时间。
+Adaptive request timeouts calculated from an **Exponential Moving Average (EMA)** of observed response times.
 
-- 数据效果展示：[https://jiamao.github.io/ema-timeout/test/index.html](https://jiamao.github.io/ema-timeout/test/index.html)
-![效果图](https://raw.githubusercontent.com/jiamao/ema-timeout/master/test/line.png)
+EMA is usually used in finance to predict the next period from historical data. This library adapts the idea to timeout control by introducing an "average effect": instead of requiring *every* request to finish within a fixed timeout, it uses the **average** response time as the health signal. The design goals are:
+
+- the overall service level must not be exceeded;
+- the better the average behaviour, the more headroom ("elasticity") is granted to individual slow requests;
+- the worse the average behaviour, the smaller that headroom — failures are detected faster so graceful degradation can kick in.
+
+Here *elasticity* means the maximum response time a spike is allowed to consume.
+
+[Interactive chart](https://jiamao.github.io/ema-timeout/test/index.html)
+
+![EMA timeout curve](https://raw.githubusercontent.com/jiamao/ema-timeout/master/test/line.png)
+
+## Features
+
+- Zero dependencies, single file, pure CommonJS, no timers or I/O.
+- Validated configuration, read-only derived state, explicit bounds clamping.
+- No cold-start bias: the first sample seeds the EMA directly.
+- `reset()`, `configure()` and `toJSON()` for warm starts, live tuning and observability.
+- Handwritten TypeScript declarations and an assertion-based test suite.
 
 ## Install
 
 ```bash
-$ npm i ema-timeout --save
+npm i ema-timeout --save
 ```
 
+```js
+const ema = require('ema-timeout');
+```
+
+## How it works
+
+`create(options)` holds an EMA value `ema` (initial `0`), a sample counter, and a smoothing factor
+
+\[
+r = \frac{2}{N + 1}, \qquad ema \leftarrow x \cdot r + ema \cdot (1 - r)
+\]
+
+where `x` is the latest observed latency in milliseconds. **The first sample seeds the EMA directly** (`ema = x`), so the recommended timeout reflects reality from the very first request instead of staying at `Tmax` for ~`N` requests.
+
+`get()` maps that EMA to a timeout:
+
+| Condition | Result | Meaning |
+| --- | --- | --- |
+| `ema <= Tavg` | `Tmax` | Health is better than the baseline: grant the maximum elasticity. |
+| `ema >= Thwm` | `Thwm` | Latency is consistently bad: clamp to the high-water mark and fail fast. |
+| otherwise | `Thwm + p * (Tmax - Thwm)`, where `p = (Thwm - ema) / (Thwm - Tavg)` | Linear interpolation between the two bounds. |
+
+The result is explicitly clamped to `[0, Tmax]`. Configuration is validated so `Tmax >= Thwm > Tavg >= 0` and `N >= 1`, which keeps the interpolation interval well-defined.
+
+## API
+
+### `ema.create(options?)`
+
+Creates an independent timeout calculator. `options` is a plain object; `null`/`undefined` values fall back to defaults, and the caller's object is never modified. Invalid values throw `TypeError` / `RangeError`.
+
+| Option | Default | Unit | Description |
+| --- | --- | --- | --- |
+| `Tavg` | `60` | ms | Baseline response time; in practice the measured average response time. Must be `>= 0`. |
+| `Thwm` | `250` | ms | High-water mark / timeout ceiling. Must be `> Tavg`. |
+| `Tmax` | `500` | ms | Maximum elastic time granted when the service is healthy. Must be `>= Thwm`. |
+| `N` | `80` | samples | Smoothing window. Must be `>= 1`. Smaller values weight recent samples more heavily; larger values react more slowly and take longer to converge. |
+
+Returns a calculator with **read-only getters** and methods:
+
+| Member | Type | Description |
+| --- | --- | --- |
+| `options` | `Readonly<EmaOptions>` | Frozen, validated configuration. Assigning to any derived field throws `TypeError` at runtime; use `reset()` / `configure()`. |
+| `ema` | `number` | Current EMA (ms). |
+| `r` | `number` | `2 / (N + 1)`, recomputed when configuration changes. |
+| `samples` | `number` | Samples fed since creation / last `reset()`. |
+| `update(x)` | `(number) => number` | Feed a latency sample, return the new EMA. |
+| `get()` | `() => number` | Recommended timeout in ms, clamped to `[0, Tmax]`. |
+| `reset(initialEma?)` | `(number?) => void` | Clear the running average, or warm-start it from a known EMA. |
+| `configure(patch)` | `(Partial<EmaOptions>) => Readonly<EmaOptions>` | Validate and apply a partial configuration update. |
+| `toJSON()` | `() => EmaSnapshot` | `{ options, ema, samples }` for persistence / logging. |
+
+### `update(x)`
+
+Feed the elapsed time of the most recent request, in milliseconds. `x` must be a finite, non-negative number; `NaN`, strings, `undefined` and negative values throw instead of corrupting the EMA. Call it on **every** request, successful or not. For a timed-out request the sample should reflect at least the timeout you allowed:
+
+```js
+emaObj.update(Math.max(Date.now() - start, options.Tmax));
+```
+
+### `get()`
+
+Return the currently recommended timeout. Call it just before issuing the request and pass the value as the request timeout.
+
+### Module-level exports
+
+| Export | Description |
+| --- | --- |
+| `create(options?)` | Calculator factory. |
+| `DEFAULTS` | Frozen defaults `{ Tavg: 60, Thwm: 250, Tmax: 500, N: 80 }`. |
+| `validateConfig(config)` | Validate a full configuration up front (throws on invalid values). |
+
 ## Usage
+
+Create one instance per backend endpoint (or per dependency), because latency profiles differ:
 
 ```js
 const ema = require('ema-timeout');
 
-// 因为每个cgi有可能不一样，根据自身业务需求考虑是否要为每个接口create不同的ema计算
 const options = {
-        Tavg: 55,   //  最低响应时间， 一般用平均响应时间替代
-        Thwm: 300,  // 超时时间限制， 确保最坏的时候，所有请求能处理。正常时正确处理的成功率满足需求。
-        Tmax: 500,  // 最大弹性时间
-        N: 90   // 平滑指数，越小表示平均值越受最近值的影响，太大则对异常响应较慢
-    };
+  Tavg: 55,   // baseline / average response time (ms)
+  Thwm: 300,  // timeout ceiling (ms)
+  Tmax: 500,  // maximum elastic time (ms)
+  N: 90       // smoothing window
+};
 const emaObj = ema.create(options);
-
 ```
+
 ```js
 const start = Date.now();
-let tdto = emaObj.get(); // 获取当前超时设置时间
+const tdto = emaObj.get(); // recommended timeout for this request
 
-// 请求接口指定超时时间
-// 这里是你业务请求逻辑
 try {
-    const result = await request({
-        timeout: tdto
-    });// 请求接口 
-
-    emaObj.update(Date.now() - start); // 这里是更新当前接口延时时间，以备计算后续超时
+  const result = await request({ timeout: tdto }); // your business request
+  emaObj.update(Date.now() - start);
+} catch (e) {
+  // treat a failure as at least Tmax, so the EMA reflects service health
+  emaObj.update(Math.max(Date.now() - start, options.Tmax));
 }
-catch(e) {
-    // 把异常指定为最大超时，这样更好的反应接口健康情况
-    emaObj.update(Math.max(Date.now() - start, options.Tmax)); 
-}    
-
 ```
 
-## 适用条件
+Live tuning and warm starts:
 
-固定业务逻辑，循环执行，如FastCGI/S++。
+```js
+emaObj.configure({ N: 40 });      // react faster from now on
+emaObj.reset(120);                // warm-start from a known average
+console.log(emaObj.toJSON());     // { options, ema, samples }
+```
 
-程序大部分时间在等待响应，而不是CPU计算或处理I/O中断。
+## TypeScript
 
-服务是串行处理模式，容易受异常、慢请求阻塞。
+`index.d.ts` is shipped and declared through `types` / `exports`; no `@types` package is needed.
 
-响应时间不宜波动过大。
+```ts
+import { create, DEFAULTS, validateConfig, type EmaOptions, type EmaTimeout } from 'ema-timeout';
 
-可以接受有损服务。
+const options: Partial<EmaOptions> = { Tavg: 55, Thwm: 300, Tmax: 500, N: 90 };
+validateConfig({ ...DEFAULTS, ...options });
+
+const calc: EmaTimeout = create(options);
+const timeout: number = calc.get();
+calc.update(42);
+```
+
+`EmaOptions`, `EmaSnapshot`, `EmaTimeout` and `Readonly<EmaOptions>` are exported; derived state is typed as read-only, so accidental writes are a compile error.
+
+## When to use
+
+- Fixed business logic executed in a loop (e.g. FastCGI / S++ style services).
+- The process spends most of its time waiting for responses, not doing CPU work or I/O interrupts.
+- Serial request handling, where a single slow or anomalous request blocks everything behind it.
+- Response-time distribution that does not fluctuate wildly.
+- Graceful degradation / lossy service is acceptable.
+
+It is a poor fit for CPU-bound jobs, highly bimodal latency distributions, or situations where every single request must meet a hard deadline — use a fixed timeout in those cases.
+
+### Tuning notes
+
+- `Tavg` should come from steady-state measurements, not from a guess.
+- `Thwm` is the hard ceiling: how long you can afford to wait in the worst case.
+- `Tmax` is only reached while the EMA is healthy; setting it far above `Thwm` increases the cost of individual spikes.
+- `N` controls the trade-off between smoothness and reaction speed. Use `reset(knownAverage)` when you already have historical data.
+
+## Limitations and known issues
+
+- **Breaking change vs 1.0.x:** invalid configurations and invalid samples now **throw** instead of silently producing `NaN`; `Tmax >= Thwm > Tavg >= 0` and `N >= 1` are enforced. Review existing configuration before upgrading.
+- **First sample seeding:** the first `update(x)` sets `ema = x` (instead of `x * r`). This removes cold-start bias but makes the very first timeout react immediately to a single outlier. Use `reset(knownAverage)` if that is undesirable.
+- **Minimal model:** a plain EMA only — no percentiles, variance, outlier rejection, sample cap or retry/backoff policy. It does not distinguish timeouts from successes; the caller must encode that in the sample value.
+- **Runtime format:** CommonJS only (TypeScript declarations are provided, but there is no ESM bundle).
+- **Chart page:** `test/index.html` is a visualisation, not a test runner; `npm test` runs the assertion suite in `test/index.js` (15 checks).
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| `index.js` | `create()` and helpers |
+| `index.d.ts` | Handwritten TypeScript declarations |
+| `test/index.js` | Assertion-based test suite (`npm test`) |
+| `test/index.html` | Interactive chart (GitHub Pages) |
+
+## Development
+
+```shell
+npm test   # node ./test/index.js — 15 assertion checks, no external dependencies
+```
 
 ## License
 
-[MIT](LICENSE)
+MIT © jiamao

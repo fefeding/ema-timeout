@@ -1,8 +1,23 @@
 {
   "name": "ema-timeout",
-  "version": "1.0.3",
-  "description": "通过ema算法动态计算延时时间",
+  "version": "1.0.4",
+  "description": "Adaptive request timeouts based on an exponential moving average of response times",
   "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "README.md",
+    "README.zh-CN.md"
+  ],
   "scripts": {
     "test": "node ./test/index.js"
   },
@@ -12,6 +27,9 @@
   },
   "keywords": [
     "ema",
+    "timeout",
+    "adaptive-timeout",
+    "latency",
     "动态超时"
   ],
   "author": "jiamao",
@@ -19,5 +37,9 @@
   "bugs": {
     "url": "https://github.com/jiamao/ema-timeout/issues"
   },
-  "homepage": "https://github.com/jiamao/ema-timeout#readme"
+  "homepage": "https://github.com/jiamao/ema-timeout#readme",
+  "engines": {
+    "node": ">=14"
+  },
+  "sideEffects": false
 }
